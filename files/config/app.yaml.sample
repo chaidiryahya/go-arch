@@ -1,0 +1,31 @@
+server:
+  port: 8080
+
+resource:
+  database:
+    main:
+      driver: mysql
+      host: localhost
+      port: 3306
+      db_name: maindb
+      username: root
+      password: secret
+      max_open_conns: 25
+      max_idle_conns: 5
+      conn_max_lifetime: 5m
+    analytics:
+      driver: postgres
+      host: localhost
+      port: 5432
+      db_name: analytics
+      username: root
+      password: secret
+      max_open_conns: 10
+      max_idle_conns: 2
+      conn_max_lifetime: 5m
+  redis:
+    default:
+      host: localhost
+      port: 6379
+      password: ""
+      db: 0
