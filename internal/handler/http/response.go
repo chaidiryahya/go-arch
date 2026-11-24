@@ -13,7 +13,7 @@ type Response struct {
 	ErrorMessage      string      `json:"error_message,omitempty"`
 }
 
-func writeJSON(w http.ResponseWriter, statusCode int, startTime time.Time, data interface{}, errMsg string) {
+func writeJSON(w http.ResponseWriter, clk clock, statusCode int, startTime time.Time, data interface{}, errMsg string) {
 	status := "ok"
 	if statusCode >= 400 {
 		status = "error"
@@ -21,7 +21,7 @@ func writeJSON(w http.ResponseWriter, statusCode int, startTime time.Time, data 
 
 	resp := Response{
 		Status:            status,
-		ServerProcessTime: time.Since(startTime).String(),
+		ServerProcessTime: clk.Now().Sub(startTime).String(),
 		Data:              data,
 		ErrorMessage:      errMsg,
 	}
@@ -31,10 +31,10 @@ func writeJSON(w http.ResponseWriter, statusCode int, startTime time.Time, data 
 	json.NewEncoder(w).Encode(resp)
 }
 
-func WriteSuccess(w http.ResponseWriter, startTime time.Time, data interface{}) {
-	writeJSON(w, http.StatusOK, startTime, data, "")
+func WriteSuccess(w http.ResponseWriter, clk clock, startTime time.Time, data interface{}) {
+	writeJSON(w, clk, http.StatusOK, startTime, data, "")
 }
 
-func WriteError(w http.ResponseWriter, startTime time.Time, statusCode int, errMsg string) {
-	writeJSON(w, statusCode, startTime, nil, errMsg)
+func WriteError(w http.ResponseWriter, clk clock, startTime time.Time, statusCode int, errMsg string) {
+	writeJSON(w, clk, statusCode, startTime, nil, errMsg)
 }

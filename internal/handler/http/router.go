@@ -24,13 +24,13 @@ func NewExampleHandler(uc usecase.ExampleUsecase, logger zerolog.Logger) *Exampl
 	}
 }
 
-func NewRouter(logger zerolog.Logger, handlers Handlers) *mux.Router {
+func NewRouter(logger zerolog.Logger, clk clock, ids idGenerator, handlers Handlers) *mux.Router {
 	r := mux.NewRouter()
 
 	// Global middleware
-	r.Use(RequestIDMiddleware)
-	r.Use(LoggingMiddleware(logger))
-	r.Use(RecoveryMiddleware(logger))
+	r.Use(RequestIDMiddleware(ids))
+	r.Use(LoggingMiddleware(logger, clk))
+	r.Use(RecoveryMiddleware(logger, clk))
 
 	// Health check
 	r.HandleFunc("/health", handlers.Health.Health).Methods("GET")

@@ -69,6 +69,7 @@ When a task touches the DB layer, fix the affected gap rather than building on t
 ## Key Conventions
 
 - **No global state.** Connections and clients are created in `app.go` and injected. No package-level `var db *sql.DB`.
+- **Nondeterminism goes through `library/`.** Time (`time.Now`), IDs (`uuid`), and randomness are to be injected via `library/` seams — today `library/clock` and `library/idgen` (constructed once in `app.go`), never called directly in handlers, services, or infra. `library/*` also ships exported fakes (`clock.NewFake`, `idgen.NewFake`) so other packages' tests can control them. Pure and stdlib-deterministic functions (`time.Parse`, `time.Duration`, `encoding/json`) are not wrapped.
 - **Constructor injection.** Every type receives its dependencies through `NewX(...)`; nothing reaches out to a singleton.
 - **Errors wrap with context** (`fmt.Errorf("...: %w", err)`) and are classified with `errors.Is`/`errors.As`. Handlers map errors to status codes; layers below return them.
 - **Context first.** `ctx context.Context` is the first parameter of anything that does I/O or can block.
@@ -159,5 +160,5 @@ make vet          # go vet ./...
 
 ## Last Updated
 
-- **Date**: 2026-11-24
-- **By**: Ported the local Claude Code workflow into this repo; documented the skeleton's current gaps
+- **Date**: 2026-11-25
+- **By**: Added `library/clock` + `library/idgen` nondeterminism seams and their convention bullet

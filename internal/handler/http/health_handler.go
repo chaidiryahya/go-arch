@@ -2,15 +2,16 @@ package http
 
 import (
 	"net/http"
-	"time"
 )
 
-type HealthHandler struct{}
+type HealthHandler struct {
+	clk clock
+}
 
-func NewHealthHandler() *HealthHandler {
-	return &HealthHandler{}
+func NewHealthHandler(clk clock) *HealthHandler {
+	return &HealthHandler{clk: clk}
 }
 
 func (h *HealthHandler) Health(w http.ResponseWriter, r *http.Request) {
-	WriteSuccess(w, time.Now(), map[string]string{"status": "ok"})
+	WriteSuccess(w, h.clk, h.clk.Now(), map[string]string{"status": "ok"})
 }
