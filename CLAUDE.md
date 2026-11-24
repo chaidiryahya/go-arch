@@ -1,31 +1,126 @@
-# go-arch — Claude Code Instructions
+# CLAUDE.md
+
+This file provides a fast structural overview of the project for Claude Code agents. Agents should read this first before scanning the full codebase.
 
 ## Project Overview
 
-Go Clean Architecture skeleton for microservices with multi-database support, graceful shutdown, and clear layer separation.
+- **Project**: go-arch
+- **Purpose**: Go microservice skeleton — Clean Architecture / Repository Pattern with multi-database support, graceful shutdown, and clear layer separation
+- **Stack**: Go 1.22+ · `database/sql` · `gorilla/mux` · `rs/zerolog` · `go-redis` · YAML config
+- **Modes**: `--mode=http|cron|nsq`, selected by a flag at startup
+
+> **Status**: skeleton. The layer structure and wiring are in place; the `example` entity is the reference vertical slice. Read the *Current State* section before trusting a layer to be complete.
 
 ## Architecture
 
 ```
-cmd/app/main.go                      ← Entry point (--mode=http|cron|nsq, -t)
-internal/app/app.go                  ← Dependency wiring
-internal/handler/http|cron|nsq/      ← Transport layer (1 handler : 1 usecase)
-internal/usecase/                    ← Orchestrates services (1 usecase → N services)
-internal/service/                    ← Single-responsibility business logic
-internal/repository/                 ← Data access interfaces + implementations
-internal/entity/                     ← Pure domain models
-internal/infra/                      ← Config, DB, Redis, Logger, HTTP client
-library/                             ← Stateless shared utilities
+cmd/app/main.go                  ← Entry point (--mode=http|cron|nsq, -t config check)
+internal/
+├── app/app.go                   ← Composition root: wiring + graceful shutdown
+├── handler/
+│   ├── http/                    ← Router, middleware, response envelope
+│   ├── cron/                    ← Scheduled job handler
+│   └── nsq/                     ← Message consumer handler
+├── usecase/                     ← Orchestrates services (1 usecase → N services)
+├── service/                     ← Single-responsibility business logic
+├── repository/                  ← Data access interfaces + implementations
+├── entity/                      ← Pure domain models
+└── infra/
+    ├── configuration/           ← YAML loader, defaults, validation
+    ├── db/                      ← Multi-database connection registry
+    ├── redis/                   ← Redis connection registry
+    ├── log/                     ← Zerolog structured logger
+    └── net/                     ← Reusable HTTP client
+library/                         ← Stateless shared utilities
+files/config/app.yaml.sample     ← Config template
 ```
 
-## Layer Rules
+### Layer Rules
 
-- `handler` → calls exactly 1 usecase
-- `usecase` → composes N services, never touches repository directly
-- `service` → reusable across usecases, calls repository interfaces
-- `repository` → receives `*sql.DB` via constructor (DI), no global state
-- `entity` → plain Go structs, zero dependencies
-- `library` → stateless helpers, no business logic, importable by any layer
+| Layer | Responsibility | Rule |
+|---|---|---|
+| `handler` | Receive request, decode, return response | Calls exactly 1 usecase |
+| `usecase` | Orchestrate business flow | Composes N services, never touches repository directly |
+| `service` | Single-responsibility business logic | Reusable across usecases, calls repository interfaces |
+| `repository` | Data access abstraction | Interface-driven; receives its connection via constructor injection |
+| `entity` | Domain models | Plain Go structs, zero dependencies |
+| `infra` | Infrastructure concerns | DB, Redis, config, logging |
+| `library` | Shared utilities | Stateless helpers, importable by any layer |
+
+### Dependency Flow
+
+```
+handler → usecase → service → repository → database
+```
+
+Dependencies point inward. Nothing below a layer imports a layer above it.
+
+## Current State (read before building)
+
+This is a skeleton, and the layers are not equally complete. Known gaps:
+
+- **Repository → service → usecase are placeholders.** `internal/app/app.go` wires a nil `ExampleRepository` because no database connection is opened yet. The example route is commented out in `router.go` until that is fixed.
+- **Multi-database is configured, not connected.** `resource.database` supports named MySQL + Postgres entries, but `cmd/app/main.go` passes `nil` for the DB and Redis registries.
+- **No tests.** `go test ./...` currently reports "no test files" for every package.
+- **No local environment.** There is no `docker-compose.yml` or migration tooling, so the multi-DB setup cannot be exercised locally yet.
+
+When a task touches the DB layer, fix the affected gap rather than building on top of the placeholder.
+
+## Key Conventions
+
+- **No global state.** Connections and clients are created in `app.go` and injected. No package-level `var db *sql.DB`.
+- **Constructor injection.** Every type receives its dependencies through `NewX(...)`; nothing reaches out to a singleton.
+- **Errors wrap with context** (`fmt.Errorf("...: %w", err)`) and are classified with `errors.Is`/`errors.As`. Handlers map errors to status codes; layers below return them.
+- **Context first.** `ctx context.Context` is the first parameter of anything that does I/O or can block.
+- **Graceful shutdown.** `main` selects on a signal channel, drains the HTTP server, then `Application.Close()` releases DB and Redis. In-flight work gets a timeout.
+- **Structured logging.** `zerolog` key/value fields; include a request id where one exists.
+
+### Config
+
+- File: `files/config/app.yaml` (git-ignored) · template: `files/config/app.yaml.sample`
+- Multi-database: `resource.database.<name>` · multi-redis: `resource.redis.<name>`
+- Missing pool settings must default to sane values in code — a zero `max_open_conns` means *unlimited* to `database/sql`.
+
+## Development Workflow
+
+This repo carries the local Claude Code workflow. The single entry point is:
+
+```
+/dev <request | ticket ref | path to a spec PDF>
+```
+
+`/dev` is an **orchestrator**. It spawns subagents, relays structured reports, and is the only participant that talks to the user:
+
+```
+planner-agent → implementer-agent → reviewer-agent (max 3 rounds) → finalizer-agent
+```
+
+Do not invoke the agents ad hoc to run a full cycle — that loses the review loop and the human checkpoints.
+
+| Agent | Model | Role | Writes |
+|---|---|---|---|
+| `planner-agent` | Opus | Phased plan | `.plans/` only |
+| `implementer-agent` | Sonnet | Execute a phase + unit tests | source + tests |
+| `reviewer-agent` | Opus | Read-only quality gate | nothing |
+| `finalizer-agent` | Haiku | Summary, branch, commit, push | `.ai-logs/` + git |
+
+Two standalone verification agents exist outside the `/dev` pipeline and are spawned when a prompt asks for end-to-end verification: `e2e-static-agent` (zero network, traces the code path) and `e2e-runtime-agent` (executes real read-only requests). Neither has a slash command; the main thread does intake and normalizes the test case to `.test-reports/`.
+
+### Artifact locations
+
+| Path | Contents | Committed |
+|---|---|---|
+| `.plans/YYYYMMDD-slug.md` | Development plans | No (git-ignored) |
+| `.ai-logs/YYYYMMDD-slug.md` | Summaries + lessons learned | Yes |
+| `.test-reports/` | E2E verification evidence | No (git-ignored) |
+
+### Branch naming
+
+`<prefix>/<short-description>` — `feat/`, `fix/`, `docs/`, `chore/`, `refactor/`, `test/`, `perf/`. The finalizer derives the branch from the plan slug.
+
+### MR/PR
+
+The finalizer detects `gh` → `GITHUB_TOKEN`/`GH_TOKEN` → compare link. Missing setup is reported as `MR_SETUP: missing`, not a failure. Tokens are detected by presence only (`${VAR:+set}`) and never echoed.
 
 ## Key Commands
 
@@ -33,37 +128,36 @@ library/                             ← Stateless shared utilities
 make run          # go run ./cmd/app/ --mode=http
 make run-cron     # go run ./cmd/app/ --mode=cron
 make run-nsq      # go run ./cmd/app/ --mode=nsq
-make config-test  # go run ./cmd/app/ --mode=http -t
+make config-test  # validate config and exit
 make build        # go build -o bin/app ./cmd/app/
-make vet          # go vet ./...
 make test         # go test ./...
+make vet          # go vet ./...
 ```
 
-> **Note:** Build with `CGO_ENABLED=0` on macOS due to Go 1.22.6 + Darwin 25.3 dyld compatibility issue.
-
-## Config
-
-- Config file: `files/config/app.yaml` (gitignored)
-- Template: `files/config/app.yaml.sample`
-- Supports multi-database (`resource.database.<name>`) and multi-redis (`resource.redis.<name>`)
+> **macOS note:** build with `CGO_ENABLED=0` to avoid the Go 1.22.6 + recent Darwin dyld incompatibility.
 
 ## Adding a New Feature
 
-1. **Entity** — add struct in `internal/entity/`
-2. **Repository** — define interface + implementation in `internal/repository/`
-3. **Service** — implement business logic in `internal/service/`, inject repository interface
+1. **Entity** — add the struct in `internal/entity/`
+2. **Repository** — define the interface + SQL implementation in `internal/repository/`
+3. **Service** — business logic in `internal/service/`, inject the repository interface
 4. **Usecase** — compose services in `internal/usecase/`, inject service interfaces
-5. **Handler** — add HTTP handler in `internal/handler/http/`, register route in `router.go`
-6. **Wire** — connect dependencies in `internal/app/app.go`
+5. **Handler** — add the HTTP handler in `internal/handler/http/`, register the route in `router.go`
+6. **Wire** — connect the dependencies in `internal/app/app.go`
 
 ## Dependencies
 
 | Package | Purpose |
 |---|---|
-| `gorilla/mux` | HTTP routing |
+| `gorilla/mux` | HTTP routing (archived upstream — evaluate `chi` before relying on it long-term) |
 | `rs/zerolog` | Structured logging |
 | `redis/go-redis/v9` | Redis client |
 | `go-sql-driver/mysql` | MySQL driver |
-| `lib/pq` | PostgreSQL driver |
+| `lib/pq` | PostgreSQL driver (maintenance mode — `pgx` is the successor) |
 | `gopkg.in/yaml.v3` | Config parsing |
 | `google/uuid` | Request ID generation |
+
+## Last Updated
+
+- **Date**: 2026-11-24
+- **By**: Ported the local Claude Code workflow into this repo; documented the skeleton's current gaps

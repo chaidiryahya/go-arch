@@ -1,0 +1,58 @@
+{
+  "mcpServers": {
+    "postgres": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://<user>:<password>@<host>:5432/<database>"
+      ]
+    },
+    "mysql": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@benborber/mcp-server-mysql",
+        "mysql://<user>:<password>@<host>:3306/<database>"
+      ]
+    },
+    "redis": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "redis-mcp-server@latest",
+        "redis-mcp-server",
+        "--url",
+        "redis://<user>:<password>@<host>:6379/0"
+      ]
+    },
+    "jira": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://mcp.atlassian.com/v1/sse"]
+    },
+    "trello": {
+      "command": "npx",
+      "args": ["-y", "mcp-server-trello"],
+      "env": {
+        "TRELLO_API_KEY": "<trello-api-key>",
+        "TRELLO_TOKEN": "<trello-token>",
+        "TRELLO_BOARD_ID": "<board-id>"
+      }
+    },
+    "clickup": {
+      "command": "npx",
+      "args": ["-y", "@taazkareem/clickup-mcp-server"],
+      "env": {
+        "CLICKUP_API_KEY": "<clickup-api-key>",
+        "CLICKUP_TEAM_ID": "<team-id>"
+      }
+    },
+    "asana": {
+      "command": "npx",
+      "args": ["-y", "asana-mcp"],
+      "env": {
+        "ASANA_ACCESS_TOKEN": "<asana-pat>"
+      }
+    }
+  }
+}
