@@ -11,17 +11,26 @@ import (
 	"github.com/rs/zerolog"
 )
 
+// clock is the subset of time behavior this package needs. It is declared
+// here, where it is consumed, rather than in the provider package (see
+// "Define Interfaces Where They're Used").
+type clock interface {
+	Now() time.Time
+}
+
 type HTTPClient struct {
 	client *http.Client
 	logger zerolog.Logger
 	debug  bool
+	clk    clock
 }
 
-func NewHTTPClient(logger zerolog.Logger, timeout time.Duration, debug bool) *HTTPClient {
+func NewHTTPClient(logger zerolog.Logger, timeout time.Duration, debug bool, clk clock) *HTTPClient {
 	return &HTTPClient{
 		client: &http.Client{Timeout: timeout},
 		logger: logger,
 		debug:  debug,
+		clk:    clk,
 	}
 }
 
@@ -47,7 +56,7 @@ func (c *HTTPClient) Do(ctx context.Context, method, url string, body []byte, he
 			Msg("http client request")
 	}
 
-	start := time.Now()
+	start := c.clk.Now()
 	resp, err := c.client.Do(req)
 	if err != nil {
 		return nil, 0, fmt.Errorf("executing request: %w", err)
@@ -64,7 +73,7 @@ func (c *HTTPClient) Do(ctx context.Context, method, url string, body []byte, he
 			Str("method", method).
 			Str("url", url).
 			Int("status", resp.StatusCode).
-			Dur("duration", time.Since(start)).
+			Dur("duration", c.clk.Now().Sub(start)).
 			Msg("http client response")
 	}
 

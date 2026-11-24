@@ -5,9 +5,23 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 )
+
+// The clock and idGenerator seams are declared here, where they are consumed,
+// rather than in the provider packages (see "Define Interfaces Where They're
+// Used"). Consumers only need the one method they call, so any type with a
+// matching method can be injected — including library/clock and library/idgen.
+
+// clock is the subset of time behavior this package needs.
+type clock interface {
+	Now() time.Time
+}
+
+// idGenerator is the subset of identifier generation this package needs.
+type idGenerator interface {
+	New() string
+}
 
 type contextKey string
 
@@ -16,22 +30,24 @@ const (
 	startTimeKey contextKey = "start_time"
 )
 
-func RequestIDMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		reqID := r.Header.Get("X-Request-ID")
-		if reqID == "" {
-			reqID = uuid.New().String()
-		}
-		ctx := context.WithValue(r.Context(), requestIDKey, reqID)
-		w.Header().Set("X-Request-ID", reqID)
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
-}
-
-func LoggingMiddleware(logger zerolog.Logger) func(http.Handler) http.Handler {
+func RequestIDMiddleware(ids idGenerator) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			start := time.Now()
+			reqID := r.Header.Get("X-Request-ID")
+			if reqID == "" {
+				reqID = ids.New()
+			}
+			ctx := context.WithValue(r.Context(), requestIDKey, reqID)
+			w.Header().Set("X-Request-ID", reqID)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+func LoggingMiddleware(logger zerolog.Logger, clk clock) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			start := clk.Now()
 			ctx := context.WithValue(r.Context(), startTimeKey, start)
 
 			reqID, _ := r.Context().Value(requestIDKey).(string)
@@ -48,13 +64,13 @@ func LoggingMiddleware(logger zerolog.Logger) func(http.Handler) http.Handler {
 				Str("method", r.Method).
 				Str("path", r.URL.Path).
 				Str("request_id", reqID).
-				Dur("duration", time.Since(start)).
+				Dur("duration", clk.Now().Sub(start)).
 				Msg("request completed")
 		})
 	}
 }
 
-func RecoveryMiddleware(logger zerolog.Logger) func(http.Handler) http.Handler {
+func RecoveryMiddleware(logger zerolog.Logger, clk clock) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			defer func() {
@@ -63,7 +79,7 @@ func RecoveryMiddleware(logger zerolog.Logger) func(http.Handler) http.Handler {
 						Interface("panic", rec).
 						Str("path", r.URL.Path).
 						Msg("panic recovered")
-					WriteError(w, time.Now(), http.StatusInternalServerError, "internal server error")
+					WriteError(w, clk, clk.Now(), http.StatusInternalServerError, "internal server error")
 				}
 			}()
 			next.ServeHTTP(w, r)
@@ -71,9 +87,9 @@ func RecoveryMiddleware(logger zerolog.Logger) func(http.Handler) http.Handler {
 	}
 }
 
-func GetStartTime(ctx context.Context) time.Time {
+func GetStartTime(ctx context.Context, clk clock) time.Time {
 	if t, ok := ctx.Value(startTimeKey).(time.Time); ok {
 		return t
 	}
-	return time.Now()
+	return clk.Now()
 }

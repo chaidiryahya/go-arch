@@ -10,6 +10,8 @@ import (
 	"go-arch/internal/repository"
 	"go-arch/internal/service"
 	"go-arch/internal/usecase"
+	"go-arch/library/clock"
+	"go-arch/library/idgen"
 
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog"
@@ -33,14 +35,18 @@ func New(cfg *configuration.Config, logger zerolog.Logger, dbReg *db.Registry, r
 		RedisReg:   redisReg,
 	}
 
-	app.wireHTTP()
+	// Nondeterminism seams, constructed once and injected.
+	clk := clock.Real{}
+	ids := idgen.Real{}
+
+	app.wireHTTP(clk, ids)
 	app.CronHandler = cron.NewHandler(logger)
 	app.NSQHandler = nsq.NewHandler(logger)
 
 	return app
 }
 
-func (a *Application) wireHTTP() {
+func (a *Application) wireHTTP(clk clock.Real, ids idgen.Real) {
 	// Repositories
 	// Uncomment when database is available:
 	// mainDB, _ := a.DBRegistry.Get("main")
@@ -55,11 +61,11 @@ func (a *Application) wireHTTP() {
 
 	// Handlers
 	handlers := handlehttp.Handlers{
-		Health:  handlehttp.NewHealthHandler(),
+		Health:  handlehttp.NewHealthHandler(clk),
 		Example: handlehttp.NewExampleHandler(exampleUsecase, a.Logger),
 	}
 
-	a.Router = handlehttp.NewRouter(a.Logger, handlers)
+	a.Router = handlehttp.NewRouter(a.Logger, clk, ids, handlers)
 }
 
 func (a *Application) Close() error {
