@@ -30,3 +30,15 @@ files/config/app.yaml
 
 # Environment
 .env
+
+# Claude dev workflow — plans stay local, never committed
+.plans/*
+!.plans/.gitkeep
+
+# Test reports — local verification evidence, never committed
+.test-reports/*
+!.test-reports/.gitkeep
+
+# Claude local settings and MCP config — contain credentials
+.claude/settings.local.json
+.claude/mcp.json
