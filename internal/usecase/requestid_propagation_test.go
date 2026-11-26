@@ -15,9 +15,9 @@ import (
 	"go-arch/internal/repository"
 	"go-arch/internal/service"
 	"go-arch/internal/usecase"
-	clockpkg "go-arch/library/clock"
 	"go-arch/library/idgen"
 	"go-arch/library/requestid"
+	clockpkg "go-arch/library/time"
 
 	"github.com/rs/zerolog"
 )
@@ -37,7 +37,7 @@ func (r *errRepo) GetByID(ctx context.Context, id int64) (*entity.Example, error
 func TestRequestIDFollowsEveryLayer(t *testing.T) {
 	var buf bytes.Buffer
 	logger := zerolog.New(&buf)
-	clk := clockpkg.NewFake(time.Date(2026, 11, 26, 12, 0, 0, 0, time.UTC))
+	clk := clockpkg.NewMockTime(time.Date(2026, 11, 26, 12, 0, 0, 0, time.UTC))
 
 	repo := &errRepo{}
 	svc := service.NewExampleService(repo, logger)
@@ -54,7 +54,7 @@ func TestRequestIDFollowsEveryLayer(t *testing.T) {
 		}
 	})
 
-	handler := apphttp.RequestIDMiddleware(idgen.NewFake())(
+	handler := apphttp.RequestIDMiddleware(idgen.NewMockGenerator())(
 		apphttp.LoggingMiddleware(logger, clk)(
 			apphttp.RecoveryMiddleware(logger, clk)(mux)))
 

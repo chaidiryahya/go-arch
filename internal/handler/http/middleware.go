@@ -14,7 +14,7 @@ import (
 // The clock and idGenerator seams are declared here, where they are consumed,
 // rather than in the provider packages (see "Define Interfaces Where They're
 // Used"). Consumers only need the one method they call, so any type with a
-// matching method can be injected — including library/clock and library/idgen.
+// matching method can be injected — including library/time and library/idgen.
 
 // clock is the subset of time behavior this package needs.
 type clock interface {

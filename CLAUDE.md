@@ -32,6 +32,9 @@ internal/
     ├── log/                     ← Zerolog structured logger
     └── net/                     ← Reusable HTTP client
 library/                         ← Stateless shared utilities
+├── time/                        ← Time seam: time.Time, time.MockTime
+├── idgen/                       ← ID seam: idgen.Generator, idgen.MockGenerator
+└── requestid/                   ← Request ID context carrier
 files/config/app.yaml.sample     ← Config template
 ```
 
@@ -69,7 +72,7 @@ When a task touches the DB layer, fix the affected gap rather than building on t
 ## Key Conventions
 
 - **No global state.** Connections and clients are created in `app.go` and injected. No package-level `var db *sql.DB`.
-- **Nondeterminism goes through `library/`.** Time (`time.Now`), IDs (`uuid`), and randomness are to be injected via `library/` seams — today `library/clock` and `library/idgen` (constructed once in `app.go`), never called directly in handlers, services, or infra. `library/*` also ships exported fakes (`clock.NewFake`, `idgen.NewFake`) so other packages' tests can control them. Pure and stdlib-deterministic functions (`time.Parse`, `time.Duration`, `encoding/json`) are not wrapped.
+- **Nondeterminism goes through `library/`.** Time (`time.Now`), IDs (`uuid`), and randomness are to be injected via `library/` seams — `library/time` (`time.Time`, `time.MockTime`) and `library/idgen` (`idgen.Generator`, `idgen.MockGenerator`), constructed once in `app.go`, never called directly in handlers, services, or infra. Both ship an exported mock (`time.NewMockTime`, `idgen.NewMockGenerator`) so other packages' tests can control them. **Packages are named after the stdlib package they wrap**, so `library/time` shadows the stdlib `time` at call sites: inside a file that needs both, alias the stdlib (`stdtime "time"`) or the seam (`clockpkg "go-arch/library/time"`). Pure and stdlib-deterministic functions (`time.Parse`, `time.Duration`, `encoding/json`) are not wrapped.
 - **Constructor injection.** Every type receives its dependencies through `NewX(...)`; nothing reaches out to a singleton.
 - **Errors wrap with context** (`fmt.Errorf("...: %w", err)`) and are classified with `errors.Is`/`errors.As`. Handlers map errors to status codes; layers below return them.
 - **Context first.** `ctx context.Context` is the first parameter of anything that does I/O or can block.
@@ -162,4 +165,4 @@ make vet          # go vet ./...
 ## Last Updated
 
 - **Date**: 2026-11-26
-- **By**: Request ID now follows handler → usecase → service → repository in HTTP, cron, and NSQ via `infralog.NewRequestID`/`ContextLogger`; `idgen` switched to UUID v7 as 32 dashless hex chars; ID is internal only (removed from response header and body); fixed `server_process_time` always reporting ~0.
+- **By**: Renamed `library/clock` → `library/time` (`time.Time`/`time.MockTime`) and `idgen.Real`/`Fake` → `idgen.Generator`/`MockGenerator`, following the package-named-after-stdlib convention.

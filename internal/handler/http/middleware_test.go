@@ -9,12 +9,9 @@ import (
 
 	"go-arch/library/idgen"
 	"go-arch/library/requestid"
+	clockpkg "go-arch/library/time"
 
 	"github.com/rs/zerolog"
-
-	// The package declares its own `clock` interface, so the provider package
-	// is imported under an alias to avoid shadowing it in this file.
-	clockpkg "go-arch/library/clock"
 )
 
 // newTestRouter builds the same middleware chain NewRouter uses, without the
@@ -27,8 +24,8 @@ func newTestRouter(t *testing.T, capture *bytes.Buffer, seen *string) http.Handl
 	t.Helper()
 
 	logger := zerolog.New(capture)
-	clk := clockpkg.NewFake(clockTestTime)
-	ids := idgen.NewFake()
+	clk := clockpkg.NewMockTime(clockTestTime)
+	ids := idgen.NewMockGenerator()
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/probe", func(w http.ResponseWriter, r *http.Request) {
@@ -161,7 +158,7 @@ func TestRequestIDReachesEveryLogLine(t *testing.T) {
 func TestRequestIDAvailableDuringPanicRecovery(t *testing.T) {
 	var buf bytes.Buffer
 	logger := zerolog.New(&buf)
-	clk := clockpkg.NewFake(clockTestTime)
+	clk := clockpkg.NewMockTime(clockTestTime)
 
 	var seen string
 	panicky := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -169,7 +166,7 @@ func TestRequestIDAvailableDuringPanicRecovery(t *testing.T) {
 		panic("boom")
 	})
 
-	handler := RequestIDMiddleware(idgen.NewFake())(
+	handler := RequestIDMiddleware(idgen.NewMockGenerator())(
 		LoggingMiddleware(logger, clk)(
 			RecoveryMiddleware(logger, clk)(panicky)))
 

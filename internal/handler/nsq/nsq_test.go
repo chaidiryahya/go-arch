@@ -41,7 +41,7 @@ func extractRequestIDs(logs string) []string {
 // Each message must get its own request id, on every line.
 func TestHandleMessageCarriesRequestID(t *testing.T) {
 	var buf bytes.Buffer
-	h := NewHandler(zerolog.New(&buf), idgen.NewFake())
+	h := NewHandler(zerolog.New(&buf), idgen.NewMockGenerator())
 
 	h.handleMessage(context.Background(), "orders")
 
@@ -58,7 +58,7 @@ func TestHandleMessageCarriesRequestID(t *testing.T) {
 // message rather than per consumer connection.
 func TestHandleMessageUsesFreshIDPerMessage(t *testing.T) {
 	var buf bytes.Buffer
-	h := NewHandler(zerolog.New(&buf), idgen.NewFake())
+	h := NewHandler(zerolog.New(&buf), idgen.NewMockGenerator())
 
 	h.handleMessage(context.Background(), "orders")
 	h.handleMessage(context.Background(), "orders")

@@ -18,7 +18,7 @@ import (
 func TestNewRequestIDAttachesIDAndLogger(t *testing.T) {
 	var buf bytes.Buffer
 	logger := zerolog.New(&buf)
-	ids := idgen.NewFake()
+	ids := idgen.NewMockGenerator()
 
 	ctx, id := infralog.NewRequestID(context.Background(), logger, ids)
 	if id == "" {
@@ -38,7 +38,7 @@ func TestNewRequestIDAttachesIDAndLogger(t *testing.T) {
 func TestNewRequestIDIsUniquePerUnitOfWork(t *testing.T) {
 	var buf bytes.Buffer
 	logger := zerolog.New(&buf)
-	ids := idgen.NewFake()
+	ids := idgen.NewMockGenerator()
 
 	_, first := infralog.NewRequestID(context.Background(), logger, ids)
 	_, second := infralog.NewRequestID(context.Background(), logger, ids)

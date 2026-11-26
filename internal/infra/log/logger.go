@@ -19,7 +19,7 @@ func NewLogger() zerolog.Logger {
 
 // IDGenerator is the subset of identifier generation this package needs.
 // Declared here, where it is consumed, so any type with a New method —
-// including library/idgen.Real and its Fake — can be injected.
+// including library/idgen.Generator and its MockGenerator — can be injected.
 type IDGenerator interface {
 	New() string
 }
