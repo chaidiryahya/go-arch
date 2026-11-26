@@ -1,5 +1,3 @@
-// Package idgen provides the identifier seam: a real UUID v7 generator and an
-// exported deterministic fake for tests.
 package idgen
 
 import (
@@ -10,9 +8,9 @@ import (
 	"github.com/google/uuid"
 )
 
-// Real is the production implementation. It is stateless and its zero value is
-// ready to use.
-type Real struct{}
+// Generator is the production implementation. It is stateless and its zero
+// value is ready to use.
+type Generator struct{}
 
 // New returns a version 7 (time-ordered) UUID as 32 lowercase hexadecimal
 // characters, without hyphens — e.g. "01a218474c8e7e7eab9d27b260635b64".
@@ -23,7 +21,7 @@ type Real struct{}
 //
 // New panics only if the system entropy source fails, exactly as the previous
 // uuid.New().String() did.
-func (Real) New() string {
+func (Generator) New() string {
 	u, err := uuid.NewV7()
 	if err != nil {
 		panic(fmt.Sprintf("idgen: generating uuid v7: %v", err))
@@ -31,32 +29,34 @@ func (Real) New() string {
 	return hex.EncodeToString(u[:])
 }
 
-// Fake is a deterministic, sequence-based generator for tests. Construct it
-// with NewFake; the zero value is not usable. The mutex makes Fake safe for
-// concurrent use by multiple goroutines.
-type Fake struct {
+// MockGenerator is a deterministic, sequence-based generator for tests.
+// Construct it with NewMockGenerator; the zero value is not usable. The mutex
+// makes MockGenerator safe for concurrent use by multiple goroutines.
+type MockGenerator struct {
 	mu sync.Mutex
 	n  uint64
 }
 
-// NewFake returns a Fake whose first generated value ends in 000000000001.
-func NewFake() *Fake {
-	return &Fake{}
+// NewMockGenerator returns a MockGenerator whose first generated value ends in
+// 000000000001.
+func NewMockGenerator() *MockGenerator {
+	return &MockGenerator{}
 }
 
 // New returns the next identifier in the sequence, starting at 1, rendered as
-// 32 lowercase hexadecimal characters to match Real's shape exactly, so tests
-// that assert format or length behave realistically. Safe for concurrent use.
-func (f *Fake) New() string {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.n++
-	return fmt.Sprintf("%032x", f.n)
+// 32 lowercase hexadecimal characters to match Generator's shape exactly, so
+// tests that assert format or length behave realistically. Safe for concurrent
+// use.
+func (m *MockGenerator) New() string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.n++
+	return fmt.Sprintf("%032x", m.n)
 }
 
 // Compile-time assertions that both implementations satisfy the one-method
 // interface consumers declare where they use it.
 var (
-	_ interface{ New() string } = Real{}
-	_ interface{ New() string } = &Fake{}
+	_ interface{ New() string } = Generator{}
+	_ interface{ New() string } = &MockGenerator{}
 )

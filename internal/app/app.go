@@ -10,8 +10,8 @@ import (
 	"go-arch/internal/repository"
 	"go-arch/internal/service"
 	"go-arch/internal/usecase"
-	"go-arch/library/clock"
 	"go-arch/library/idgen"
+	"go-arch/library/time"
 
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog"
@@ -36,8 +36,8 @@ func New(cfg *configuration.Config, logger zerolog.Logger, dbReg *db.Registry, r
 	}
 
 	// Nondeterminism seams, constructed once and injected.
-	clk := clock.Real{}
-	ids := idgen.Real{}
+	clk := time.Time{}
+	ids := idgen.Generator{}
 
 	app.wireHTTP(clk, ids)
 	app.CronHandler = cron.NewHandler(logger, ids)
@@ -46,7 +46,7 @@ func New(cfg *configuration.Config, logger zerolog.Logger, dbReg *db.Registry, r
 	return app
 }
 
-func (a *Application) wireHTTP(clk clock.Real, ids idgen.Real) {
+func (a *Application) wireHTTP(clk time.Time, ids idgen.Generator) {
 	// Repositories
 	// Uncomment when database is available:
 	// mainDB, _ := a.DBRegistry.Get("main")

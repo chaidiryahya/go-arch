@@ -17,7 +17,7 @@ import (
 // it — the same guarantee HTTP requests get from middleware.
 func TestRunJobCarriesRequestID(t *testing.T) {
 	var buf bytes.Buffer
-	h := NewHandler(zerolog.New(&buf), idgen.NewFake())
+	h := NewHandler(zerolog.New(&buf), idgen.NewMockGenerator())
 
 	h.runJob(context.Background(), "nightly-settlement")
 
@@ -39,7 +39,7 @@ func TestRunJobCarriesRequestID(t *testing.T) {
 // Two separate runs must not reuse an id.
 func TestRunJobUsesFreshIDEachRun(t *testing.T) {
 	var buf bytes.Buffer
-	h := NewHandler(zerolog.New(&buf), idgen.NewFake())
+	h := NewHandler(zerolog.New(&buf), idgen.NewMockGenerator())
 
 	h.runJob(context.Background(), "job-a")
 	h.runJob(context.Background(), "job-b")
@@ -79,4 +79,4 @@ func extractRequestIDs(logs string) []string {
 }
 
 // The seam must be satisfied by the injected generator.
-var _ infralog.IDGenerator = idgen.Real{}
+var _ infralog.IDGenerator = idgen.Generator{}

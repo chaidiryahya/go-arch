@@ -11,8 +11,8 @@ import (
 // hex32 is exactly what the seam promises: 32 hard hex chars, no hyphens.
 var hex32 = regexp.MustCompile(`^[0-9a-f]{32}$`)
 
-func TestRealIsDashlessHex32(t *testing.T) {
-	ids := idgen.Real{}
+func TestGeneratorIsDashlessHex32(t *testing.T) {
+	ids := idgen.Generator{}
 	for i := 0; i < 1000; i++ {
 		got := ids.New()
 		if !hex32.MatchString(got) {
@@ -27,8 +27,8 @@ func TestRealIsDashlessHex32(t *testing.T) {
 	}
 }
 
-func TestRealIsUnique(t *testing.T) {
-	ids := idgen.Real{}
+func TestGeneratorIsUnique(t *testing.T) {
+	ids := idgen.Generator{}
 	seen := make(map[string]struct{}, 10_000)
 	for i := 0; i < 10_000; i++ {
 		got := ids.New()
@@ -42,8 +42,8 @@ func TestRealIsUnique(t *testing.T) {
 // UUID v7's 48-bit timestamp prefix means ids generated later must sort after
 // earlier ones lexicographically. This is the property that makes them a good
 // log/index key, so it is worth pinning.
-func TestRealIsTimeOrdered(t *testing.T) {
-	ids := idgen.Real{}
+func TestGeneratorIsTimeOrdered(t *testing.T) {
+	ids := idgen.Generator{}
 
 	const n = 500
 	generated := make([]string, n)
@@ -63,28 +63,28 @@ func TestRealIsTimeOrdered(t *testing.T) {
 	}
 }
 
-func TestFakeMatchesRealShape(t *testing.T) {
-	ids := idgen.NewFake()
+func TestMockGeneratorMatchesGeneratorShape(t *testing.T) {
+	ids := idgen.NewMockGenerator()
 	for i := 1; i <= 5; i++ {
 		got := ids.New()
 		if !hex32.MatchString(got) {
-			t.Fatalf("fake id %q does not match real shape %s", got, hex32)
+			t.Fatalf("mock id %q does not match generator shape %s", got, hex32)
 		}
 	}
 }
 
-func TestFakeIsDeterministicAndSequential(t *testing.T) {
-	a := idgen.NewFake()
-	b := idgen.NewFake()
+func TestMockGeneratorIsDeterministicAndSequential(t *testing.T) {
+	a := idgen.NewMockGenerator()
+	b := idgen.NewMockGenerator()
 
 	for i := 0; i < 3; i++ {
 		if ga, gb := a.New(), b.New(); ga != gb {
-			t.Fatalf("fake not deterministic: %q != %q", ga, gb)
+			t.Fatalf("mock generator not deterministic: %q != %q", ga, gb)
 		}
 	}
 
-	first := idgen.NewFake().New()
+	first := idgen.NewMockGenerator().New()
 	if first != "00000000000000000000000000000001" {
-		t.Fatalf("first fake id = %q, want ...0001", first)
+		t.Fatalf("first mock id = %q, want ...0001", first)
 	}
 }
