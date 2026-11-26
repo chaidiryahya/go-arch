@@ -61,7 +61,7 @@ This is a skeleton, and the layers are not equally complete. Known gaps:
 
 - **Repository → service → usecase are placeholders.** `internal/app/app.go` wires a nil `ExampleRepository` because no database connection is opened yet. The example route is commented out in `router.go` until that is fixed.
 - **Multi-database is configured, not connected.** `resource.database` supports named MySQL + Postgres entries, but `cmd/app/main.go` passes `nil` for the DB and Redis registries.
-- **No tests.** `go test ./...` currently reports "no test files" for every package.
+- **Test coverage is thin.** `library/idgen`, `library/requestid`, `internal/infra/log`, `internal/handler/{http,cron,nsq}`, and `internal/usecase` (cross-layer request-id propagation) have tests; `entity`, `service`, `repository`, `app`, and the remaining infra packages still report "no test files".
 - **No local environment.** There is no `docker-compose.yml` or migration tooling, so the multi-DB setup cannot be exercised locally yet.
 
 When a task touches the DB layer, fix the affected gap rather than building on top of the placeholder.
@@ -75,6 +75,7 @@ When a task touches the DB layer, fix the affected gap rather than building on t
 - **Context first.** `ctx context.Context` is the first parameter of anything that does I/O or can block.
 - **Graceful shutdown.** `main` selects on a signal channel, drains the HTTP server, then `Application.Close()` releases DB and Redis. In-flight work gets a timeout.
 - **Structured logging.** `zerolog` key/value fields; include a request id where one exists.
+- **Request ID follows every layer, in every mode.** An ID is generated per unit of work: a UUID v7 rendered as 32 dashless hex chars via `library/idgen`. HTTP gets one from `RequestIDMiddleware` (a client `X-Request-ID` is honoured only if it is 8–64 alphanumerics, else replaced); cron and NSQ derive one per job run / message via `infralog.NewRequestID`. The ID is **never returned to a caller** — no response header, no response body field — it exists only for logs. Layers log through `infralog.ContextLogger(ctx, logger)`, which returns a logger already carrying `request_id`; use it instead of the bare injected logger so the field is always present. `library/requestid` holds the context carrier so no layer imports `handler`.
 
 ### Config
 
@@ -160,5 +161,5 @@ make vet          # go vet ./...
 
 ## Last Updated
 
-- **Date**: 2026-11-25
-- **By**: Added `library/clock` + `library/idgen` nondeterminism seams and their convention bullet
+- **Date**: 2026-11-26
+- **By**: Request ID now follows handler → usecase → service → repository in HTTP, cron, and NSQ via `infralog.NewRequestID`/`ContextLogger`; `idgen` switched to UUID v7 as 32 dashless hex chars; ID is internal only (removed from response header and body); fixed `server_process_time` always reporting ~0.

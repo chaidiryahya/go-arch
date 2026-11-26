@@ -40,8 +40,8 @@ func New(cfg *configuration.Config, logger zerolog.Logger, dbReg *db.Registry, r
 	ids := idgen.Real{}
 
 	app.wireHTTP(clk, ids)
-	app.CronHandler = cron.NewHandler(logger)
-	app.NSQHandler = nsq.NewHandler(logger)
+	app.CronHandler = cron.NewHandler(logger, ids)
+	app.NSQHandler = nsq.NewHandler(logger, ids)
 
 	return app
 }
@@ -50,7 +50,7 @@ func (a *Application) wireHTTP(clk clock.Real, ids idgen.Real) {
 	// Repositories
 	// Uncomment when database is available:
 	// mainDB, _ := a.DBRegistry.Get("main")
-	// exampleRepo := repository.NewExampleRepository(mainDB)
+	// exampleRepo := repository.NewExampleRepository(mainDB, a.Logger)
 	var exampleRepo repository.ExampleRepository // nil placeholder
 
 	// Services

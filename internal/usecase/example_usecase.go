@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"go-arch/internal/entity"
+	infralog "go-arch/internal/infra/log"
 	"go-arch/internal/service"
 
 	"github.com/rs/zerolog"
@@ -29,7 +30,11 @@ func NewExampleUsecase(exampleService service.ExampleService, logger zerolog.Log
 func (u *exampleUsecase) GetByID(ctx context.Context, id int64) (*entity.Example, error) {
 	example, err := u.exampleService.GetByID(ctx, id)
 	if err != nil {
-		u.logger.Error().Str("layer", "usecase").Err(err).Int64("id", id).Msg("failed to get example")
+		infralog.ContextLogger(ctx, u.logger).Error().
+			Str("layer", "usecase").
+			Err(err).
+			Int64("id", id).
+			Msg("failed to get example")
 		return nil, fmt.Errorf("getting example by id: %w", err)
 	}
 	return example, nil
