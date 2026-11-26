@@ -13,5 +13,5 @@ func NewHealthHandler(clk clock) *HealthHandler {
 }
 
 func (h *HealthHandler) Health(w http.ResponseWriter, r *http.Request) {
-	WriteSuccess(w, h.clk, h.clk.Now(), map[string]string{"status": "ok"})
+	WriteSuccess(w, r, h.clk, map[string]string{"status": "ok"})
 }
